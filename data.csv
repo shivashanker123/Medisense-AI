@@ -1,0 +1,5 @@
+glucose,ketones,protein,blood_rbc,wbc,nitrite,leukocyte_esterase,ph,specific_gravity,crystals,hcg,kidney_stone,uti,diabetes,pregnancy
+1,1,0,2,1,0,0,5.5,1.030,0,0,0,0,1,0
+0,0,0,0,25,1,1,8.0,1.020,0,0,0,1,0,0
+0,0,0,10,5,0,0,6.0,1.025,1,0,1,0,0,0
+0,0,0,0,0,0,0,6.5,1.015,0,1,0,0,0,1

@@ -1,0 +1,20 @@
+/src
+│
+├── /assets              # Images & Icons
+│   ├── doctor_hero.png  # The doctor image from your screenshot
+│   └── logo.png
+│
+├── /components          # Reusable UI Parts
+│   ├── Navbar.jsx       # The top navigation bar
+│   ├── Footer.jsx       # Bottom links
+│   ├── ServiceCard.jsx  # The cards (Heart/Kidney) on Home Page
+│   └── FormInputs.jsx   # Reusable Input fields (Dropdowns/Text)
+│
+├── /pages               # The Main Screens
+│   ├── Home.jsx         # Landing Page (Hero + 2 Tabs)
+│   ├── KidneyTest.jsx   # The 2-Step Kidney Form
+│   └── HeartTest.jsx    # (Placeholder for Heart Form)
+│
+├── App.jsx              # The Router (Controls navigation)
+├── index.css            # Tailwind CSS imports
+└── main.jsx             # Entry point
