@@ -11,14 +11,12 @@ import Signup from "./pages/Signup";
 import Footer from "./components/Footer";
 import BloodCheckup from "./pages/BloodCheckup";
 import LungCheckup from "./pages/LungCheckup";
-
-
+import BrainMRI from "./pages/BrainMRI";
 
 function App() {
   return (
     <Router>
       <div className="w-full bg-slate-50 min-h-screen font-sans text-slate-900 overflow-x-hidden">
-        
         <Navbar />
 
         <Routes>
@@ -30,7 +28,7 @@ function App() {
           <Route path="/signup" element={<Signup />} />
           <Route path="/blood-checkup" element={<BloodCheckup />} />
           <Route path="/lung-checkup" element={<LungCheckup />} />
-
+          <Route path="/brain-mri" element={<BrainMRI />} />
         </Routes>
 
         <Footer />

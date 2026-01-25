@@ -5,10 +5,11 @@ import {
   Heart,
   Droplets,
   ArrowRight,
+  Brain,
 } from "lucide-react";
 import { Link } from "react-router-dom";
 import Homedynamictext from "./Homedynamictext";
-import { motion } from "framer-motion"; // <--- 1. IMPORT THIS
+import { motion } from "framer-motion";
 
 const Home = () => {
   return (
@@ -19,15 +20,15 @@ const Home = () => {
           <Homedynamictext />
         </h1>
         <p className="text-teal-100 text-lg max-w-2xl mx-auto mb-10">
-          Upload your lab reports and get instant analysis for Kidney and Heart
-          health using our advanced Machine Learning models.
+          Upload your lab reports and get instant analysis of your Health using
+          our Advanced Machine Learning models.
         </p>
       </section>
 
-      {/* CARDS SECTION */}
+      {}
       <section className="max-w-5xl mx-auto px-6 -mt-16 pb-20 relative z-30">
-        {/* --- BACKGROUND PATTERN --- */}
-        {/* This fills the blank space with a subtle medical dot grid */}
+        {}
+        {}
         <div
           className="absolute inset-0 -z-10 opacity-[0.05]"
           style={{
@@ -37,7 +38,7 @@ const Home = () => {
         ></div>
 
         <div className="grid md:grid-cols-2 gap-8">
-          {/* Card 1: Kidney (Slide from LEFT) */}
+          {/* Card 1: Kidney*/}
           <motion.div
             initial={{ opacity: 0, x: -100 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -64,7 +65,7 @@ const Home = () => {
             </Link>
           </motion.div>
 
-          {/* Card 2: Heart (Slide from RIGHT) */}
+          {/* Card 2: Heart */}
           <motion.div
             initial={{ opacity: 0, x: 100 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -92,8 +93,8 @@ const Home = () => {
             </Link>
           </motion.div>
 
-          {/* Card 3: Blood (Slide from LEFT) */}
-          {/* Card 3: Blood (Slide from LEFT) */}
+          {/* Card 3: Blood Picture */}
+          {}
           <motion.div
             initial={{ opacity: 0, x: -100 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -122,7 +123,7 @@ const Home = () => {
             </Link>
           </motion.div>
 
-          {/* Card 4: Lung (Slide from RIGHT) */}
+          {/* Card 4: Lung */}
           <motion.div
             initial={{ opacity: 0, x: 100 }}
             whileInView={{ opacity: 1, x: 0 }}
@@ -145,6 +146,34 @@ const Home = () => {
                 </p>
 
                 <span className="text-sky-600 font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
+                  Start Checkup <ArrowRight />
+                </span>
+              </div>
+            </Link>
+          </motion.div>
+          {/* Card: Brain MRI */}
+          <motion.div
+            initial={{ opacity: 0, x: -100 }}
+            whileInView={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
+            viewport={{ once: true }}
+          >
+            <Link to="/brain-mri" className="block">
+              <div className="bg-white p-10 rounded-3xl shadow-xl hover:-translate-y-2 transition duration-300 border-t-8 border-amber-400 group cursor-pointer">
+                <div className="bg-amber-100/60 w-20 h-20 rounded-full flex items-center justify-center mb-6">
+                  <Brain size={40} className="text-amber-600" />
+                </div>
+
+                <h2 className="text-3xl font-bold text-slate-800 mb-4">
+                  Brain MRI
+                </h2>
+
+                <p className="text-slate-500 mb-8">
+                  Analyze Brain MRI scans to detect tumors, stroke, and
+                  neurological abnormalities.
+                </p>
+
+                <span className="text-amber-600 font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
                   Start Checkup <ArrowRight />
                 </span>
               </div>
