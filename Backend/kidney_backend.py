@@ -48,9 +48,6 @@ class PredictInput(BaseModel):
     urobilinogen: int = 0
     crystals: int = 0
 
-
-#ROUTES
-
 @app.get("/")
 def health_check():
     return {"status": "API running"}
