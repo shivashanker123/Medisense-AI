@@ -1,0 +1,83 @@
+import { MapPin, Mail, Phone, GraduationCap } from "lucide-react";
+
+const ContactModal = () => {
+  return (
+    <dialog
+      id="contactModal"
+      className="rounded-2xl p-6 w-[420px] backdrop:bg-black/50 shadow-xl"
+    >
+      <h2 className="text-2xl font-bold text-emerald-600 text-center mb-2">
+        MediSense AI
+      </h2>
+
+      <p className="text-center text-gray-500 mb-4">
+        About & Contact Information
+      </p>
+
+      <div className="space-y-3 mb-5 text-sm text-gray-700">
+        <div className="flex justify-between">
+          <span>P Shiva Shanker</span>
+          <span className="flex items-center gap-1">
+            <Phone size={14} /> +91 XXXXXXXXXX
+          </span>
+        </div>
+
+        <div className="flex justify-between">
+          <span>C H Abhinav</span>
+          <span className="flex items-center gap-1">
+            <Phone size={14} /> +91 XXXXXXXXXX
+          </span>
+        </div>
+
+        <div className="flex justify-between">
+          <span>N S V Chiranjeevi</span>
+          <span className="flex items-center gap-1">
+            <Phone size={14} /> +91 XXXXXXXXXX
+          </span>
+        </div>
+
+        <div className="flex justify-between">
+          <span>K Chandrasekhar</span>
+          <span className="flex items-center gap-1">
+            <Phone size={14} /> +91 XXXXXXXXXX
+          </span>
+        </div>
+      </div>
+
+      <hr className="my-4" />
+
+      <div className="space-y-3 text-sm text-gray-600">
+        <div className="flex items-center gap-2">
+          <MapPin size={16} className="text-emerald-500" />
+          Hyderabad, Telangana
+        </div>
+
+        <div className="flex items-center gap-2">
+          <GraduationCap size={16} className="text-emerald-500" />
+          JNTU Hyderabad
+        </div>
+
+        <div className="flex items-center gap-2">
+          <Mail size={16} className="text-emerald-500" />
+          <a
+            href="mailto:koduruchandrasekhar10@gmail.com"
+            className="text-emerald-600 hover:underline"
+          >
+            koduruchandrasekhar10@gmail.com
+          </a>
+        </div>
+      </div>
+
+      <div className="mt-6 text-center">
+        <button
+          onClick={() => document.getElementById("contactModal").close()}
+          className="bg-gradient-to-r from-emerald-500 to-emerald-600 text-white px-6 py-2 rounded-full font-semibold"
+        >
+          Close
+        </button>
+      </div>
+    </dialog>
+  );
+};
+
+export default ContactModal;
