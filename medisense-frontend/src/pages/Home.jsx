@@ -127,14 +127,8 @@ const Home = () => {
                 Start Checkup <ArrowRight />
               </span>
             </div>
-          </motion.div>
+                   </motion.div>
 
-                <span className="text-amber-600 font-bold flex items-center gap-2 group-hover:gap-4 transition-all">
-                  Start Checkup <ArrowRight />
-                </span>
-              </div>
-            </Link>
-          </motion.div>
         </div>
       </section>
     </div>
