@@ -3,8 +3,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import joblib
 import pandas as pd
+from heart_backend import router as heart_router
 
-app= FastAPI(title="Kidney prediction backend")
+app= FastAPI(title="MediSense prediction backend")
 
 app.add_middleware(
     CORSMiddleware,
@@ -13,6 +14,7 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+app.include_router(heart_router)
 
 try:
     model=joblib.load("best.pkl")
