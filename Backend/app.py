@@ -3,10 +3,21 @@ from flask_cors import CORS
 import pandas as pd
 import joblib
 import numpy as np
+import base64
+import os
+import json
+import google.generativeai as genai
+from io import BytesIO
+from PIL import Image
 
 app = Flask(__name__)
-# Enable CORS so your React Frontend (port 5173) can talk to this Backend (port 5000)
+# Enable CORS so your React Frontend (port 5173 or 3000) can talk to this Backend (port 5000)
 CORS(app)
+
+# --- NEW: INITIALIZE GEMINI CLIENT ---
+# Replace 'YOUR_GEMINI_API_KEY' with your actual key
+GEMINI_API_KEY = "AIzaSyAYifIs7afFjai1dvGnGK5ysViHt5J_pvI"
+genai.configure(api_key=GEMINI_API_KEY)
 
 # --- 1. LOAD THE MODEL ---
 try:
@@ -17,8 +28,6 @@ except FileNotFoundError:
     model = None
 
 # --- 2. DEFINE EXACT COLUMN ORDER ---
-# This MUST match the order in 'train_kidney_model.py' exactly.
-# If these are swapped, the model will think Age is Glucose!
 EXPECTED_COLUMNS = [
     'age', 'gender', 'glucose', 'ketones', 'protein', 'blood_rbc', 
     'wbc', 'nitrite', 'leukocyte_esterase', 'ph', 'specific_gravity', 
@@ -26,34 +35,94 @@ EXPECTED_COLUMNS = [
 ]
 
 # --- 3. DEFINE OUTPUT LABELS ---
-# The model outputs [0, 1, 0...]. We need to know which index matches which disease.
 DISEASE_LABELS = [
     'Kidney_Stone', 'UTI', 'Diabetes', 'Nephritis', 
     'Pyelonephritis', 'CKD', 'Liver_Disease', 'Dehydration'
 ]
 
+
+# ==========================================
+# NEW ROUTE: EXTRACT DATA FROM IMAGE VIA GEMINI
+# ==========================================
+@app.route('/upload-report', methods=['POST'])
+def upload_report():
+    if 'file' not in request.files:
+        return jsonify({'error': 'No file part'}), 400
+    
+    file = request.files['file']
+
+    if file.filename == '':
+        return jsonify({'error': 'No selected file'}), 400
+
+    try:
+        print(f"📸 Received image for extraction: {file.filename}")
+        
+        # 1. Read the image and open it with PIL for Gemini
+        image_bytes = file.read()
+        pil_image = Image.open(BytesIO(image_bytes))
+
+        # 2. Define the exact JSON structure we want Gemini to return
+        prompt_text = """
+        You are an expert medical data extractor. Analyze the provided urinalysis report image.
+        Extract the values and return ONLY a raw JSON object. Do not include markdown formatting or explanations.
+        
+        Rules for values:
+        - For 'ph', 'specific_gravity', 'wbc', 'blood_rbc': Return the exact number as a string (e.g., "6.5", "1.020", "25").
+        - For all other fields (glucose, ketones, protein, nitrite, leukocyte_esterase, bilirubin, urobilinogen, crystals): 
+          Return "1" if the report indicates Positive/Trace/Present/Abnormal. Return "0" if Negative/Normal/Absent/Nil.
+        - If a field is not found in the image, return "".
+
+        Required JSON keys:
+        {
+          "glucose": "", "ketones": "", "protein": "", "blood_rbc": "", 
+          "wbc": "", "nitrite": "", "leukocyte_esterase": "", "ph": "", 
+          "specific_gravity": "", "bilirubin": "", "urobilinogen": "", "crystals": ""
+        }
+        """
+
+        # 3. Call the Gemini Vision API
+        # Using gemini-2.5-flash as it is fast and excellent at OCR
+        vision_model = genai.GenerativeModel('gemini-2.5-flash')
+        response = vision_model.generate_content([prompt_text, pil_image])
+
+        # 4. Clean and parse the response
+        response_text = response.text.strip()
+        
+        # Sometimes LLMs wrap JSON in markdown block. Strip it out if present.
+        if response_text.startswith("```json"):
+            response_text = response_text[7:-3].strip()
+        elif response_text.startswith("```"):
+            response_text = response_text[3:-3].strip()
+
+        print(f"🤖 Gemini Output: {response_text}")
+        
+        # Convert string to dictionary and send back to React
+        extracted_data = json.loads(response_text)
+        return jsonify(extracted_data)
+
+    except Exception as e:
+        print(f"❌ Extraction Error: {e}")
+        return jsonify({'error': str(e)}), 500
+
+
+# ==========================================
+# EXISTING ROUTE: PREDICT DISEASE
+# ==========================================
 @app.route('/predict', methods=['POST'])
 def predict():
     if not model:
         return jsonify({'error': 'Model not loaded'}), 500
 
     try:
-        # --- STEP 1: RECEIVE JSON FROM FRONTEND ---
-        # Data comes in looking like: {'name': 'John', 'age': '25', 'gender': 'Male', 'glucose': '1'...}
         data = request.json
         print(f"📥 Received Payload: {data}")
 
-        # --- STEP 2: PRE-PROCESSING (Translate Human -> Machine) ---
-        
-        # A. Handle Gender: Model trained on 0=Male, 1=Female
-        # Frontend sends "Male"/"Female"
         gender_input = data.get('gender', 'Male')
         gender_val = 1 if gender_input == 'Female' else 0
 
-        # B. Organize into a List in the EXACT order required
         input_list = [
             int(data.get('age', 25)),           # Age
-            gender_val,                         # Gender (converted)
+            gender_val,                         # Gender 
             int(data.get('glucose', 0)),        # Glucose
             int(data.get('ketones', 0)),        # Ketones
             int(data.get('protein', 0)),        # Protein
@@ -68,26 +137,15 @@ def predict():
             int(data.get('crystals', 0))        # Crystals
         ]
 
-        # --- STEP 3: CONVERT TO DATAFRAME ---
-        # We wrap the list in a DataFrame so it looks just like the training data
         input_df = pd.DataFrame([input_list], columns=EXPECTED_COLUMNS)
-
-        # --- STEP 4: GET PREDICTION FROM MODEL ---
-        # The model returns a NumPy array like: [[0, 1, 0, 0, 0, 0, 0, 0]]
         prediction_raw = model.predict(input_df)
-        
-        # We take the first row (since we only predicted 1 patient)
         patient_result = prediction_raw[0] 
 
-        # --- STEP 5: CONVERT ARRAY TO JSON ---
-        # We assume integers (0 or 1) because JSON doesn't like NumPy types
         response_data = {}
         for i, disease_name in enumerate(DISEASE_LABELS):
             response_data[disease_name] = int(patient_result[i])
 
-        # Result looks like: {"Kidney_Stone": 0, "UTI": 1, ...}
         print(f"📤 Sending Response: {response_data}")
-        
         return jsonify(response_data)
 
     except Exception as e:
