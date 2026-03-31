@@ -9,14 +9,16 @@ import json
 import google.generativeai as genai
 from io import BytesIO
 from PIL import Image
+from dotenv import load_dotenv
+
+load_dotenv(override=True)
 
 app = Flask(__name__)
 # Enable CORS so your React Frontend (port 5173 or 3000) can talk to this Backend (port 5000)
 CORS(app)
 
 # --- NEW: INITIALIZE GEMINI CLIENT ---
-# Replace 'YOUR_GEMINI_API_KEY' with your actual key
-GEMINI_API_KEY = "AIzaSyAYifIs7afFjai1dvGnGK5ysViHt5J_pvI"
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 genai.configure(api_key=GEMINI_API_KEY)
 
 # --- 1. LOAD THE MODEL ---
