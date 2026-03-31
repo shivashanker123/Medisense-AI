@@ -10,6 +10,8 @@ import {
   Loader2      // Added for loading spinner
 } from "lucide-react";
 
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
+
 const KidneyTest = () => {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
@@ -54,7 +56,7 @@ const KidneyTest = () => {
     uploadData.append('type', 'kidney'); // Tells backend to use the Kidney prompt
 
     try {
-      const response = await axios.post('http://localhost:5000/upload-report', uploadData, {
+      const response = await axios.post(`${API_BASE_URL}/upload-report`, uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
@@ -95,9 +97,9 @@ const KidneyTest = () => {
         crystals: parseInt(formData.crystals),
       };
 
-      // Ensure your Flask URL is correct
+      // FastAPI endpoint
       const response = await axios.post(
-        "http://localhost:5000/predict",
+        `${API_BASE_URL}/predict`,
         payload,
       );
       setResult(response.data);

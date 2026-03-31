@@ -8,6 +8,7 @@ import {
   ArrowRight,
 } from "lucide-react";
 import { Link } from "react-router-dom";
+// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
 import Homedynamictext from "./Homedynamictext";
 
@@ -55,7 +56,7 @@ const Home = () => {
                 className="w-full h-full object-cover hover:scale-110 transition-transform duration-700 ease-in-out cursor-pointer"
               />
             </motion.div>
-          ))}
+          ))}uuuuuuuu
         </div>
       </section>
 
