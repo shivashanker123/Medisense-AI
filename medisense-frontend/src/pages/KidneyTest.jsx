@@ -46,66 +46,78 @@ const KidneyTest = () => {
     setFormData({ ...formData, [e.target.name]: e.target.value });
   };
 
+  const buildPredictionPayload = (data) => ({
+    age: parseInt(data.age, 10) || 25,
+    gender: data.gender || "Male",
+    glucose: parseInt(data.glucose, 10) || 0,
+    ketones: parseInt(data.ketones, 10) || 0,
+    protein: parseInt(data.protein, 10) || 0,
+    blood_rbc: parseFloat(data.blood_rbc) || 0,
+    wbc: parseFloat(data.wbc) || 0,
+    nitrite: parseInt(data.nitrite, 10) || 0,
+    leukocyte_esterase: parseInt(data.leukocyte_esterase, 10) || 0,
+    ph: parseFloat(data.ph) || 6.0,
+    specific_gravity: parseFloat(data.specific_gravity) || 1.02,
+    bilirubin: parseInt(data.bilirubin, 10) || 0,
+    urobilinogen: parseInt(data.urobilinogen, 10) || 0,
+    crystals: parseInt(data.crystals, 10) || 0,
+  });
+
+  const runPrediction = async (data) => {
+    const payload = buildPredictionPayload(data);
+    const response = await axios.post(`${API_BASE_URL}/predict`, payload);
+    setResult(response.data);
+  };
+
   // --- NEW: Function to send image to Flask backend for extraction ---
   const handleImageUpload = async () => {
-    if (!selectedFile) return;
+    if (!selectedFile) {
+      alert("Please select an image first.");
+      return;
+    }
 
     setIsExtracting(true);
     const uploadData = new FormData();
     uploadData.append('file', selectedFile);
-    uploadData.append('type', 'kidney'); // Tells backend to use the Kidney prompt
 
     try {
       const response = await axios.post(`${API_BASE_URL}/upload-report`, uploadData, {
         headers: { 'Content-Type': 'multipart/form-data' }
       });
 
-      // Merge the AI extracted data into our existing form data to auto-fill inputs
-      setFormData(prevData => ({
-        ...prevData,
-        ...response.data
-      }));
+      const extractedFormData = {
+        ...formData,
+        ...response.data,
+      };
 
-      alert("Extraction complete! Please review the auto-filled values below.");
+      setFormData(extractedFormData);
+      setLoading(true);
+      await runPrediction(extractedFormData);
     } catch (error) {
       console.error(error);
-      alert("Failed to extract data. Please ensure the backend is running and the image is clear.");
+      const detail =
+        error?.response?.data?.detail ||
+        error?.response?.data?.error ||
+        "Failed to extract data. Please ensure the backend is running and the image is clear.";
+      alert(detail);
+    } finally {
+      setIsExtracting(false);
+      setLoading(false);
     }
-    setIsExtracting(false);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
     try {
-      // Mapping Frontend Data to the Exact Keys/Types your Python Model expects
-      const payload = {
-        age: parseInt(formData.age) || 25,
-        gender: formData.gender, // "Male" or "Female" (Backend will convert)
-
-        glucose: parseInt(formData.glucose),
-        ketones: parseInt(formData.ketones),
-        protein: parseInt(formData.protein),
-        blood_rbc: parseFloat(formData.blood_rbc) || 0,
-        wbc: parseFloat(formData.wbc) || 0,
-        nitrite: parseInt(formData.nitrite),
-        leukocyte_esterase: parseInt(formData.leukocyte_esterase),
-        ph: parseFloat(formData.ph),
-        specific_gravity: parseFloat(formData.specific_gravity),
-        bilirubin: parseInt(formData.bilirubin),
-        urobilinogen: parseInt(formData.urobilinogen),
-        crystals: parseInt(formData.crystals),
-      };
-
-      // FastAPI endpoint
-      const response = await axios.post(
-        `${API_BASE_URL}/predict`,
-        payload,
-      );
-      setResult(response.data);
+      await runPrediction(formData);
     } catch (error) {
       console.error(error);
-      alert("Error: Is the Python Backend running?");
+      const detail =
+        error?.response?.data?.detail ||
+        error?.response?.data?.error ||
+        "Error: Is the Python backend running?";
+      alert(detail);
     }
     setLoading(false);
   };

@@ -1,159 +1,302 @@
-from flask import Flask, request, jsonify
-from flask_cors import CORS
-import pandas as pd
-import joblib
-import numpy as np
-import base64
-import os
+from __future__ import annotations
+
 import json
-import google.generativeai as genai
+import os
 from io import BytesIO
-from PIL import Image
+from pathlib import Path
+from typing import Any
+
+from google import genai
+import joblib
+import pandas as pd
 from dotenv import load_dotenv
+from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi.middleware.cors import CORSMiddleware
+from pydantic import BaseModel
+from PIL import Image, UnidentifiedImageError
 
-load_dotenv(override=True)
+from heart_backend import router as heart_router
 
-app = Flask(__name__)
-# Enable CORS so your React Frontend (port 5173 or 3000) can talk to this Backend (port 5000)
-CORS(app)
 
-# --- NEW: INITIALIZE GEMINI CLIENT ---
-GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
-genai.configure(api_key=GEMINI_API_KEY)
+BASE_DIR = Path(__file__).resolve().parent
+PROJECT_ROOT = BASE_DIR.parent
+load_dotenv(BASE_DIR / ".env", override=True)
 
-# --- 1. LOAD THE MODEL ---
-try:
-    model = joblib.load("best.pkl")
-    print("✅ Model Loaded Successfully!")
-except FileNotFoundError:
-    print("❌ Error: 'best.pkl' not found. Please run 'train_kidney_model.py' first.")
-    model = None
+KIDNEY_MODEL_PATH = BASE_DIR / "best.pkl"
+CBC_MODEL_PATH = PROJECT_ROOT / "cbc_pattern_model.pkl"
+CBC_ENCODER_PATH = PROJECT_ROOT / "cbc_label_encoder.pkl"
 
-# --- 2. DEFINE EXACT COLUMN ORDER ---
-EXPECTED_COLUMNS = [
-    'age', 'gender', 'glucose', 'ketones', 'protein', 'blood_rbc', 
-    'wbc', 'nitrite', 'leukocyte_esterase', 'ph', 'specific_gravity', 
-    'bilirubin', 'urobilinogen', 'crystals'
+KIDNEY_EXPECTED_COLUMNS = [
+    "age",
+    "gender",
+    "glucose",
+    "ketones",
+    "protein",
+    "blood_rbc",
+    "wbc",
+    "nitrite",
+    "leukocyte_esterase",
+    "ph",
+    "specific_gravity",
+    "bilirubin",
+    "urobilinogen",
+    "crystals",
 ]
 
-# --- 3. DEFINE OUTPUT LABELS ---
 DISEASE_LABELS = [
-    'Kidney_Stone', 'UTI', 'Diabetes', 'Nephritis', 
-    'Pyelonephritis', 'CKD', 'Liver_Disease', 'Dehydration'
+    "Kidney_Stone",
+    "UTI",
+    "Diabetes",
+    "Nephritis",
+    "Pyelonephritis",
+    "CKD",
+    "Liver_Disease",
+    "Dehydration",
 ]
 
+CBC_EXPECTED_COLUMNS = [
+    "Hb",
+    "RBC",
+    "WBC",
+    "PLATELETS",
+    "LYMP",
+    "MONO",
+    "HCT",
+    "MCV",
+    "MCH",
+    "MCHC",
+    "RDW",
+    "PDW",
+    "MPV",
+    "PCT",
+]
 
-# ==========================================
-# NEW ROUTE: EXTRACT DATA FROM IMAGE VIA GEMINI
-# ==========================================
-@app.route('/upload-report', methods=['POST'])
-def upload_report():
-    if 'file' not in request.files:
-        return jsonify({'error': 'No file part'}), 400
-    
-    file = request.files['file']
+KIDNEY_OCR_PROMPT = """
+You are an expert medical data extractor. Analyze the provided urinalysis report image.
+Extract the values and return ONLY a raw JSON object. Do not include markdown formatting or explanations.
 
-    if file.filename == '':
-        return jsonify({'error': 'No selected file'}), 400
+Rules for values:
+- For 'ph', 'specific_gravity', 'wbc', 'blood_rbc': Return the exact number as a string (e.g., "6.5", "1.020", "25").
+- For all other fields (glucose, ketones, protein, nitrite, leukocyte_esterase, bilirubin, urobilinogen, crystals):
+  Return "1" if the report indicates Positive/Trace/Present/Abnormal. Return "0" if Negative/Normal/Absent/Nil.
+- If a field is not found in the image, return "".
+
+Required JSON keys:
+{
+  "glucose": "", "ketones": "", "protein": "", "blood_rbc": "",
+  "wbc": "", "nitrite": "", "leukocyte_esterase": "", "ph": "",
+  "specific_gravity": "", "bilirubin": "", "urobilinogen": "", "crystals": ""
+}
+""".strip()
+
+CBC_OCR_PROMPT = """
+You are an expert medical data extractor. Analyze the provided Complete Blood Count (CBC) report image.
+Extract the numerical values for the specific tests listed below and return ONLY a raw JSON object.
+Do not include markdown formatting, explanations, or units (like g/dL or %). Only return the numbers as strings.
+
+If a field is not found in the image, return "0.0".
+
+Required JSON keys:
+{
+  "Hb": "", "RBC": "", "WBC": "", "PLATELETS": "",
+  "LYMP": "", "MONO": "", "HCT": "", "MCV": "",
+  "MCH": "", "MCHC": "", "RDW": "", "PDW": "",
+  "MPV": "", "PCT": ""
+}
+""".strip()
+
+app = FastAPI(
+    title="MediSense AI Backend",
+    description="Backend for kidney, CBC, and ECG analysis",
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+app.include_router(heart_router)
+
+
+class KidneyInput(BaseModel):
+    age: int = 25
+    gender: str = "Male"
+    glucose: int = 0
+    ketones: int = 0
+    protein: int = 0
+    blood_rbc: float = 0.0
+    wbc: float = 0.0
+    nitrite: int = 0
+    leukocyte_esterase: int = 0
+    ph: float = 6.0
+    specific_gravity: float = 1.020
+    bilirubin: int = 0
+    urobilinogen: int = 0
+    crystals: int = 0
+
+
+class CBCInput(BaseModel):
+    Hb: float = 0.0
+    RBC: float = 0.0
+    WBC: float = 0.0
+    PLATELETS: float = 0.0
+    LYMP: float = 0.0
+    MONO: float = 0.0
+    HCT: float = 0.0
+    MCV: float = 0.0
+    MCH: float = 0.0
+    MCHC: float = 0.0
+    RDW: float = 0.0
+    PDW: float = 0.0
+    MPV: float = 0.0
+    PCT: float = 0.0
+
+
+def _load_joblib_model(path: Path, label: str) -> Any | None:
+    try:
+        model = joblib.load(path)
+        print(f"{label} loaded from {path}")
+        return model
+    except FileNotFoundError:
+        print(f"{label} not found at {path}")
+        return None
+    except Exception as exc:  # noqa: BLE001
+        print(f"Failed to load {label}: {exc}")
+        return None
+
+
+def _clean_json_response(text: str) -> dict[str, Any]:
+    cleaned = text.strip()
+    if cleaned.startswith("```json"):
+        cleaned = cleaned[7:-3].strip()
+    elif cleaned.startswith("```"):
+        cleaned = cleaned[3:-3].strip()
+    return json.loads(cleaned)
+
+
+def _ensure_image_upload(file: UploadFile) -> None:
+    if not file.content_type or not file.content_type.startswith("image/"):
+        raise HTTPException(status_code=400, detail="File must be an image.")
+
+
+async def _extract_report_data(file: UploadFile, prompt_text: str) -> dict[str, Any]:
+    _ensure_image_upload(file)
+
+    if not gemini_client:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured.")
 
     try:
-        print(f"📸 Received image for extraction: {file.filename}")
-        
-        # 1. Read the image and open it with PIL for Gemini
-        image_bytes = file.read()
+        image_bytes = await file.read()
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
         pil_image = Image.open(BytesIO(image_bytes))
-
-        # 2. Define the exact JSON structure we want Gemini to return
-        prompt_text = """
-        You are an expert medical data extractor. Analyze the provided urinalysis report image.
-        Extract the values and return ONLY a raw JSON object. Do not include markdown formatting or explanations.
-        
-        Rules for values:
-        - For 'ph', 'specific_gravity', 'wbc', 'blood_rbc': Return the exact number as a string (e.g., "6.5", "1.020", "25").
-        - For all other fields (glucose, ketones, protein, nitrite, leukocyte_esterase, bilirubin, urobilinogen, crystals): 
-          Return "1" if the report indicates Positive/Trace/Present/Abnormal. Return "0" if Negative/Normal/Absent/Nil.
-        - If a field is not found in the image, return "".
-
-        Required JSON keys:
-        {
-          "glucose": "", "ketones": "", "protein": "", "blood_rbc": "", 
-          "wbc": "", "nitrite": "", "leukocyte_esterase": "", "ph": "", 
-          "specific_gravity": "", "bilirubin": "", "urobilinogen": "", "crystals": ""
-        }
-        """
-
-        # 3. Call the Gemini Vision API
-        # Using gemini-2.5-flash as it is fast and excellent at OCR
-        vision_model = genai.GenerativeModel('gemini-2.5-flash')
-        response = vision_model.generate_content([prompt_text, pil_image])
-
-        # 4. Clean and parse the response
-        response_text = response.text.strip()
-        
-        # Sometimes LLMs wrap JSON in markdown block. Strip it out if present.
-        if response_text.startswith("```json"):
-            response_text = response_text[7:-3].strip()
-        elif response_text.startswith("```"):
-            response_text = response_text[3:-3].strip()
-
-        print(f"🤖 Gemini Output: {response_text}")
-        
-        # Convert string to dictionary and send back to React
-        extracted_data = json.loads(response_text)
-        return jsonify(extracted_data)
-
-    except Exception as e:
-        print(f"❌ Extraction Error: {e}")
-        return jsonify({'error': str(e)}), 500
+        response = await gemini_client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[prompt_text, pil_image]
+        )
+        return _clean_json_response(response.text)
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid image file: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=502, detail=f"Invalid OCR JSON response: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=500, detail=f"Extraction error: {exc}") from exc
 
 
-# ==========================================
-# EXISTING ROUTE: PREDICT DISEASE
-# ==========================================
-@app.route('/predict', methods=['POST'])
-def predict():
-    if not model:
-        return jsonify({'error': 'Model not loaded'}), 500
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
+gemini_client = None
+if GEMINI_API_KEY:
+    gemini_client = genai.Client(api_key=GEMINI_API_KEY)
+else:
+    print("GEMINI_API_KEY not found in environment variables.")
+
+kidney_model = _load_joblib_model(KIDNEY_MODEL_PATH, "Kidney model")
+cbc_model = _load_joblib_model(CBC_MODEL_PATH, "CBC model")
+cbc_label_encoder = _load_joblib_model(CBC_ENCODER_PATH, "CBC label encoder")
+
+
+@app.get("/")
+def health_check() -> dict[str, Any]:
+    return {
+        "status": "MediSense API is running",
+        "gemini_configured": bool(GEMINI_API_KEY),
+        "kidney_model_loaded": kidney_model is not None,
+        "cbc_model_loaded": cbc_model is not None and cbc_label_encoder is not None,
+    }
+
+
+@app.post("/predict")
+def predict_kidney(data: KidneyInput) -> dict[str, int]:
+    if kidney_model is None:
+        raise HTTPException(status_code=500, detail="Kidney model not loaded.")
 
     try:
-        data = request.json
-        print(f"📥 Received Payload: {data}")
-
-        gender_input = data.get('gender', 'Male')
-        gender_val = 1 if gender_input == 'Female' else 0
-
-        input_list = [
-            int(data.get('age', 25)),           # Age
-            gender_val,                         # Gender 
-            int(data.get('glucose', 0)),        # Glucose
-            int(data.get('ketones', 0)),        # Ketones
-            int(data.get('protein', 0)),        # Protein
-            float(data.get('blood_rbc', 0)),    # Blood
-            float(data.get('wbc', 0)),          # WBC
-            int(data.get('nitrite', 0)),        # Nitrite
-            int(data.get('leukocyte_esterase', 0)), # Leukocytes
-            float(data.get('ph', 6.0)),         # pH
-            float(data.get('specific_gravity', 1.020)), # SG
-            int(data.get('bilirubin', 0)),      # Bilirubin
-            int(data.get('urobilinogen', 0)),   # Urobilinogen
-            int(data.get('crystals', 0))        # Crystals
+        gender_val = 1 if data.gender.lower() == "female" else 0
+        input_row = [
+            data.age,
+            gender_val,
+            data.glucose,
+            data.ketones,
+            data.protein,
+            data.blood_rbc,
+            data.wbc,
+            data.nitrite,
+            data.leukocyte_esterase,
+            data.ph,
+            data.specific_gravity,
+            data.bilirubin,
+            data.urobilinogen,
+            data.crystals,
         ]
 
-        input_df = pd.DataFrame([input_list], columns=EXPECTED_COLUMNS)
-        prediction_raw = model.predict(input_df)
-        patient_result = prediction_raw[0] 
+        input_df = pd.DataFrame([input_row], columns=KIDNEY_EXPECTED_COLUMNS)
+        prediction_raw = kidney_model.predict(input_df)[0]
+        return {
+            DISEASE_LABELS[i]: int(prediction_raw[i])
+            for i in range(len(DISEASE_LABELS))
+        }
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
 
-        response_data = {}
-        for i, disease_name in enumerate(DISEASE_LABELS):
-            response_data[disease_name] = int(patient_result[i])
 
-        print(f"📤 Sending Response: {response_data}")
-        return jsonify(response_data)
+@app.post("/upload-report")
+async def upload_urinalysis_report(file: UploadFile = File(...)) -> dict[str, Any]:
+    return await _extract_report_data(file, KIDNEY_OCR_PROMPT)
 
-    except Exception as e:
-        print(f"❌ Error: {e}")
-        return jsonify({'error': str(e)}), 500
 
-if __name__ == '__main__':
-    print("🚀 Starting Flask Server on Port 5000...")
-    app.run(debug=True, port=5000)
+@app.post("/predict-cbc")
+def predict_cbc(data: CBCInput) -> dict[str, str]:
+    if cbc_model is None or cbc_label_encoder is None:
+        raise HTTPException(status_code=500, detail="CBC models not loaded.")
+
+    try:
+        if hasattr(data, "model_dump"):
+            input_data = data.model_dump()
+        else:
+            input_data = data.dict()
+
+        input_row = [input_data[column] for column in CBC_EXPECTED_COLUMNS]
+        input_df = pd.DataFrame([input_row], columns=CBC_EXPECTED_COLUMNS)
+
+        prediction = cbc_model.predict(input_df)[0]
+        pattern = cbc_label_encoder.inverse_transform([prediction])[0]
+        return {"pattern": str(pattern)}
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+
+
+@app.post("/upload-cbc-report")
+async def upload_cbc_report(file: UploadFile = File(...)) -> dict[str, Any]:
+    return await _extract_report_data(file, CBC_OCR_PROMPT)
+
+
+if __name__ == "__main__":
+    import uvicorn
+
+    print("Starting FastAPI server on port 5000...")
+    uvicorn.run(app, host="0.0.0.0", port=5000)
