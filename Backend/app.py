@@ -23,8 +23,8 @@ PROJECT_ROOT = BASE_DIR.parent
 load_dotenv(BASE_DIR / ".env", override=True)
 
 KIDNEY_MODEL_PATH = BASE_DIR / "best.pkl"
-CBC_MODEL_PATH = PROJECT_ROOT / "cbc_pattern_model.pkl"
-CBC_ENCODER_PATH = PROJECT_ROOT / "cbc_label_encoder.pkl"
+CBC_MODEL_PATH = BASE_DIR / "cbc_pattern_model.pkl"
+CBC_ENCODER_PATH = BASE_DIR / "cbc_label_encoder.pkl"
 
 KIDNEY_EXPECTED_COLUMNS = [
     "age",
@@ -112,7 +112,12 @@ app = FastAPI(
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://localhost:3000"],
+    allow_origins=[
+        "http://localhost:5173",
+        "http://localhost:5174",
+        "http://localhost:5175",
+        "http://localhost:3000",
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
