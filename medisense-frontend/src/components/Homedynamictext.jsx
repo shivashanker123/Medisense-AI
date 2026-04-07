@@ -1,36 +1,38 @@
-import React, { useEffect, useRef } from 'react';
-import Typed from 'typed.js'; // We import the engine directly
+import { useEffect, useRef } from "react";
+import Typed from "typed.js";
 
-const Homedynamictext = () => {
-  // Create a reference to the HTML element where typing happens
-  const el = useRef(null);
+function Homedynamictext({
+  strings = [],
+  className = "",
+  typeSpeed = 52,
+  backSpeed = 28,
+  backDelay = 1500,
+  loop = true,
+  showCursor = true,
+}) {
+  const textRef = useRef(null);
 
   useEffect(() => {
-    // Initialize Typed.js
-    const typed = new Typed(el.current, {
-      strings: [
-        "AI-Powered Health Predictions",
-        "Early detection made simple, fast, and accessible for everyone.",
-      ],
-      typeSpeed: 50,
-      backSpeed: 30,
-      loop: true
+    if (!textRef.current || strings.length === 0) {
+      return undefined;
+    }
+
+    const typed = new Typed(textRef.current, {
+      strings,
+      typeSpeed,
+      backSpeed,
+      backDelay,
+      loop,
+      showCursor,
+      smartBackspace: true,
     });
 
-    // cleanup: Destroy the instance when component unmounts
     return () => {
       typed.destroy();
     };
-  }, []);
+  }, [backDelay, backSpeed, loop, showCursor, strings, typeSpeed]);
 
-  return (
-      
-      <div style={{ fontSize: '2.3rem', fontWeight: 'bold', color: 'white' }}>
-        {/* The typing effect will be attached to this span */}
-        <span ref={el} />
-      </div>
-    // </div>
-  );
-};
+  return <span ref={textRef} className={className} />;
+}
 
 export default Homedynamictext;

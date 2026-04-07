@@ -1,345 +1,429 @@
-import React from "react";
+import { useEffect, useState } from "react";
 import {
+  Activity,
+  ArrowRight,
+  Brain,
   Droplet,
   Droplets,
   Heart,
-  Stethoscope,
-  Brain,
-  ArrowRight,
-  ShieldPlus,
-  Users,
-  Activity,
   Microscope,
-  Clock,
-  Star,
+  ScanSearch,
+  Stethoscope,
 } from "lucide-react";
-import { Link } from "react-router-dom";
-// eslint-disable-next-line no-unused-vars
 import { motion } from "framer-motion";
+import { Link, useLocation } from "react-router-dom";
 
-const CHECKUP_CARDS = [
+import Homedynamictext from "../components/Homedynamictext";
+
+const HERO_IMAGES = [
   {
-    to: "/kidney-test",
-    icon: <Droplets size={36} className="text-teal-600" />,
-    iconBg: "bg-teal-50",
-    border: "border-teal-500",
-    accent: "text-teal-600",
-    title: "Kidney Health",
-    desc: "Detect kidney stones, UTI, and diabetes using urinalysis reports with AI-powered analysis.",
+    src: "https://images.unsplash.com/photo-1631556764629-b51c3ae40d18?auto=format&fit=crop&fm=jpg&q=80&w=1600",
+    alt: "Clinical laboratory workflow",
+    eyebrow: "Laboratory Research",
+    title: "Clinical Lab Workflow",
+    caption: "A cleaner workflow for structured report capture and AI-guided interpretation.",
   },
   {
-    to: "/heart-checkup",
-    icon: <Heart size={36} className="text-red-500" />,
-    iconBg: "bg-red-50",
-    border: "border-red-500",
-    accent: "text-red-500",
-    title: "Heart Disease",
-    desc: "Predict cardiac risks using ECG and blood pressure data through deep learning models.",
+    src: "https://images.unsplash.com/photo-1666214277657-e60f05c40b04?auto=format&fit=crop&fm=jpg&q=80&w=1600",
+    alt: "Radiology team reviewing diagnostic scans",
+    eyebrow: "Radiology Review",
+    title: "Imaging Diagnostics",
+    caption: "Bring scan review, model output, and guided analysis into one visual flow.",
   },
   {
-    to: "/blood-checkup",
-    icon: <Droplet size={36} className="text-rose-600" />,
-    iconBg: "bg-rose-50",
-    border: "border-rose-500",
-    accent: "text-rose-600",
-    title: "Blood Picture",
-    desc: "Analyze CBC reports for anemia, infections, and blood disorders automatically.",
-  },
-  {
-    to: "/lung-checkup",
-    icon: <Stethoscope size={36} className="text-sky-500" />,
-    iconBg: "bg-sky-50",
-    border: "border-sky-500",
-    accent: "text-sky-600",
-    title: "Lung Health",
-    desc: "Detect pneumonia and lung cancer from chest X-rays using computer vision.",
-  },
-  {
-    to: "/brain-mri",
-    icon: <Brain size={36} className="text-amber-500" />,
-    iconBg: "bg-amber-50",
-    border: "border-amber-400",
-    accent: "text-amber-600",
-    title: "Brain MRI",
-    desc: "Analyze MRI scans to detect tumors, stroke, and neurological abnormalities.",
+    src: "https://images.unsplash.com/photo-1576765608741-911f44c98546?auto=format&fit=crop&fm=jpg&q=80&w=1600",
+    alt: "Microscopy diagnostics in a lab",
+    eyebrow: "Microscope Analysis",
+    title: "Precision Screening",
+    caption: "Use focused workflows for report extraction, microscopy support, and early signal review.",
   },
 ];
 
-const FEATURES = [
+const HERO_PHRASES = [
+  "Kidney Reports",
+  "Heart Signals",
+  "CBC Panels",
+  "Lung Scans",
+  "Brain MRI",
+];
+
+const HERO_SUPPORT_LINE =
+  "Move from raw reports to clearer, earlier health signals across multiple modules.";
+
+const HERO_TAGS = [
+  "ECG Interpretation",
+  "CBC Pattern Analysis",
+  "Report Extraction",
+  "MRI Review",
+];
+
+const SERVICE_LINKS = [
+  { label: "Kidney", to: "/kidney-test" },
+  { label: "Heart", to: "/heart-checkup" },
+  { label: "Blood", to: "/blood-checkup" },
+  { label: "Lung", to: "/lung-checkup" },
+  { label: "Brain MRI", to: "/brain-mri" },
+];
+
+const HEALTH_MODULES = [
   {
-    icon: <ShieldPlus size={28} className="text-teal-600" />,
-    title: "Emergency Help",
-    desc: "Instant AI alerts to surface critical findings and guide you on priority medical actions.",
+    to: "/kidney-test",
+    icon: Droplets,
+    accent: "from-teal-300 via-emerald-400 to-cyan-400",
+    iconClass: "text-teal-600",
+    iconBg: "bg-teal-50",
+    title: "Kidney Health",
+    description: "Detect kidney stones, UTI, diabetes indicators, and report-level abnormalities from urinalysis workflows.",
   },
   {
-    icon: <Users size={28} className="text-teal-600" />,
-    title: "Collaborative Communities",
-    desc: "Share health insights and connect with others to build wellness communities together.",
+    to: "/heart-checkup",
+    icon: Heart,
+    accent: "from-rose-300 via-pink-400 to-fuchsia-400",
+    iconClass: "text-rose-600",
+    iconBg: "bg-rose-50",
+    title: "Heart Disease",
+    description: "Upload ECG imagery and receive rhythm-focused AI analysis for cardiac screening support.",
   },
   {
-    icon: <Activity size={28} className="text-teal-600" />,
-    title: "Medical Treatment",
-    desc: "Professional AI-driven analysis to diagnose, monitor, and manage your health conditions.",
+    to: "/blood-checkup",
+    icon: Droplet,
+    accent: "from-red-300 via-orange-400 to-amber-400",
+    iconClass: "text-red-600",
+    iconBg: "bg-red-50",
+    title: "Blood Picture",
+    description: "Interpret CBC patterns for anemia, infection, and blood-disorder related diagnostic clues.",
   },
   {
-    icon: <Microscope size={28} className="text-teal-600" />,
-    title: "Lab Report Scanning",
-    desc: "Upload any lab report image and let our AI extract and interpret values automatically.",
+    to: "/lung-checkup",
+    icon: Stethoscope,
+    accent: "from-sky-300 via-cyan-400 to-blue-400",
+    iconClass: "text-sky-600",
+    iconBg: "bg-sky-50",
+    title: "Lung Health",
+    description: "Explore lung screening workflows that support scan-based review and respiratory risk interpretation.",
   },
   {
-    icon: <Clock size={28} className="text-teal-600" />,
-    title: "Real-Time Insights",
-    desc: "Get instant health analysis results the moment you submit your report data.",
+    to: "/brain-mri",
+    icon: Brain,
+    accent: "from-amber-300 via-orange-300 to-yellow-400",
+    iconClass: "text-amber-600",
+    iconBg: "bg-amber-50",
+    title: "Brain MRI",
+    description: "Review MRI-oriented analysis pathways for tumor, stroke, and neurological abnormality screening.",
+  },
+];
+
+const HOW_IT_WORKS = [
+  {
+    icon: Activity,
+    title: "Choose a workflow",
+    description: "Open the health module that matches the report, scan, or ECG you want to analyze.",
   },
   {
-    icon: <Star size={28} className="text-teal-600" />,
-    title: "Trusted by Doctors",
-    desc: "Models trained on validated clinical datasets and reviewed by medical professionals.",
+    icon: Microscope,
+    title: "Upload and verify",
+    description: "Add your image or enter values manually, then confirm the extracted clinical details.",
+  },
+  {
+    icon: ScanSearch,
+    title: "Review AI guidance",
+    description: "Get structured output that helps you understand the screening result faster.",
+  },
+];
+
+const PLATFORM_HIGHLIGHTS = [
+  {
+    icon: Activity,
+    title: "Smart diagnostics",
+    description: "Bring multiple clinical inputs into one cleaner, guided frontend experience.",
+  },
+  {
+    icon: Microscope,
+    title: "Profile-aware flow",
+    description: "Save user details once and reduce repeated entry across the protected checkup modules.",
+  },
+  {
+    icon: ScanSearch,
+    title: "Faster screening",
+    description: "Move from upload to AI-supported review with less friction and clearer steps.",
   },
 ];
 
 const Home = () => {
+  const location = useLocation();
+  const [activeImageIndex, setActiveImageIndex] = useState(0);
+  const [failedImages, setFailedImages] = useState({});
+
+  useEffect(() => {
+    const timer = window.setInterval(() => {
+      setActiveImageIndex((current) => (current + 1) % HERO_IMAGES.length);
+    }, 3600);
+
+    return () => {
+      window.clearInterval(timer);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!location.hash) {
+      return;
+    }
+
+    const sectionId = location.hash.replace("#", "");
+    const target = document.getElementById(sectionId);
+
+    if (!target) {
+      return;
+    }
+
+    window.requestAnimationFrame(() => {
+      target.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }, [location.hash]);
+
+  const currentImage = HERO_IMAGES[activeImageIndex];
+  const currentImageSrc = failedImages[currentImage.src]
+    ? "/hero_doctor.png"
+    : currentImage.src;
+
+  const handleImageError = (src) => {
+    setFailedImages((current) => ({ ...current, [src]: true }));
+  };
 
   return (
-    <div className="w-full bg-white min-h-screen font-sans overflow-x-hidden">
+    <div className="min-h-screen overflow-x-hidden bg-white">
+      <section className="relative overflow-hidden bg-[radial-gradient(circle_at_top_left,_rgba(16,185,129,0.16),transparent_30%),radial-gradient(circle_at_bottom_right,_rgba(45,212,191,0.18),transparent_28%),linear-gradient(180deg,#f7fffd_0%,#ffffff_68%)] px-6 pb-20 pt-16">
+        <div className="absolute left-8 top-12 h-40 w-40 rounded-full bg-emerald-100/60 blur-3xl" />
+        <div className="absolute bottom-10 right-8 h-52 w-52 rounded-full bg-teal-100/70 blur-3xl" />
 
-      {/* ═══════════════ HERO ═══════════════ */}
-      <section className="relative bg-gradient-to-br from-teal-50 via-white to-emerald-50 overflow-hidden min-h-[520px] flex items-center">
-        {/* Decorative blobs */}
-        <div className="absolute -top-24 -left-24 w-96 h-96 bg-teal-100 rounded-full opacity-40 blur-3xl" />
-        <div className="absolute bottom-0 right-0 w-80 h-80 bg-emerald-100 rounded-full opacity-40 blur-3xl" />
-
-        <div className="max-w-7xl mx-auto px-6 py-16 grid md:grid-cols-2 gap-10 items-center relative z-10 w-full">
-          {/* Text */}
+        <div className="relative mx-auto grid max-w-7xl items-center gap-14 lg:grid-cols-[1.02fr_0.98fr]">
           <motion.div
-            initial={{ opacity: 0, x: -50 }}
-            animate={{ opacity: 1, x: 0 }}
+            initial={{ opacity: 0, y: 24 }}
+            animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.7 }}
           >
-            <span className="inline-block bg-teal-100 text-teal-700 text-sm font-semibold px-4 py-1 rounded-full mb-5">
+            <div className="inline-flex items-center gap-2 rounded-full border border-emerald-100 bg-emerald-50 px-5 py-2 text-sm font-semibold text-emerald-700 shadow-sm">
+              <span className="h-2.5 w-2.5 rounded-full bg-emerald-500 animate-pulse" />
               AI-Powered Health Platform
-            </span>
-            <h1 className="text-5xl md:text-6xl font-extrabold text-slate-900 leading-tight mb-6">
-              Monitor{" "}
-              <span className="text-teal-600">Smarter,</span>
-              <br />
-              Live{" "}
-              <span className="text-teal-600">Healthier</span>
-            </h1>
-            <p className="text-slate-500 text-lg mb-8 max-w-lg">
-              Health monitoring system that keeps track of vital metrics, providing
-              real-time insights to help you make informed health choices and live
-              a healthier life.
+            </div>
+
+            <p className="mt-6 text-xs font-semibold uppercase tracking-[0.34em] text-slate-400">
+              Early Screening For Modern Diagnostics
             </p>
-            <div className="flex gap-4">
+
+            <h1 className="mt-5 text-5xl font-black leading-[0.95] tracking-tight text-slate-950 md:text-7xl">
+              <span className="block">Monitor Smarter,</span>
+              <span className="mt-2 block">Analyze</span>
+              <span className="mt-5 block">
+                <span className="inline-flex h-[82px] min-w-[360px] max-w-full items-center rounded-[1.75rem] bg-gradient-to-r from-teal-500 via-emerald-500 to-cyan-500 px-7 text-white shadow-[0_18px_40px_rgba(13,148,136,0.22)] md:h-[92px] md:min-w-[470px]">
+                  <Homedynamictext
+                    strings={HERO_PHRASES}
+                    className="block whitespace-nowrap text-[2.1rem] font-black leading-none md:text-[3.2rem]"
+                  />
+                </span>
+              </span>
+            </h1>
+
+            <p className="mt-7 max-w-xl text-base leading-8 text-slate-600 md:text-lg">
+              {HERO_SUPPORT_LINE}
+            </p>
+
+            <div className="mt-8 flex flex-wrap gap-x-8 gap-y-3 text-xs font-semibold uppercase tracking-[0.22em] text-slate-400">
+              {HERO_TAGS.map((tag) => (
+                <span key={tag}>{tag}</span>
+              ))}
+            </div>
+
+            <div className="mt-10 flex flex-wrap gap-4">
               <Link
                 to="/kidney-test"
-                className="bg-teal-600 text-white px-7 py-3 rounded-xl font-bold hover:bg-teal-700 transition shadow-lg shadow-teal-200"
+                className="rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 px-7 py-3 font-semibold text-white shadow-lg shadow-emerald-200 transition hover:from-emerald-600 hover:to-teal-700"
               >
                 Get Report
               </Link>
               <Link
                 to="/about"
-                className="bg-slate-900 text-white px-7 py-3 rounded-xl font-bold hover:bg-slate-700 transition"
+                className="rounded-xl bg-slate-950 px-7 py-3 font-semibold text-white transition hover:bg-slate-800"
               >
                 About Us
               </Link>
             </div>
-
-            {/* Stats row */}
-            <div className="flex gap-8 mt-10">
-              {[["10K+", "Reports Analyzed"], ["98%", "Accuracy Rate"], ["5", "Health Modules"]].map(
-                ([num, label]) => (
-                  <div key={label}>
-                    <p className="text-2xl font-extrabold text-teal-600">{num}</p>
-                    <p className="text-xs text-slate-400">{label}</p>
-                  </div>
-                )
-              )}
-            </div>
           </motion.div>
 
-          {/* Doctor image */}
           <motion.div
-            className="relative flex justify-center items-end"
-            initial={{ opacity: 0, x: 60 }}
+            initial={{ opacity: 0, x: 30 }}
             animate={{ opacity: 1, x: 0 }}
-            transition={{ duration: 0.8, delay: 0.2 }}
+            transition={{ duration: 0.8, delay: 0.1 }}
+            className="mx-auto w-full max-w-[490px]"
           >
-            {/* Glowing ring */}
-            <div className="absolute bottom-0 left-1/2 -translate-x-1/2 w-72 h-72 bg-teal-200 rounded-full opacity-30 blur-2xl" />
-            <img
-              src="/hero_doctor.png"
-              alt="MediSense AI Doctor"
-              className="relative z-10 max-h-[420px] object-contain drop-shadow-2xl"
-            />
-            {/* Floating badge */}
-            <div className="absolute top-8 right-4 bg-white rounded-2xl shadow-xl px-4 py-3 flex items-center gap-3 border border-teal-100">
-              <div className="bg-teal-100 p-2 rounded-full">
-                <Activity size={18} className="text-teal-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-400">Live Analysis</p>
-                <p className="text-sm font-bold text-slate-800">AI Ready</p>
+            <div className="relative overflow-hidden rounded-[2.4rem] border border-slate-200 bg-white p-4 shadow-[0_30px_80px_rgba(15,23,42,0.10)]">
+              <img
+                src={currentImageSrc}
+                alt={currentImage.alt}
+                onError={() => handleImageError(currentImage.src)}
+                className="h-[560px] w-full rounded-[1.9rem] object-cover"
+              />
+              <div className="absolute inset-x-8 bottom-8 rounded-[1.6rem] bg-gradient-to-t from-slate-950/92 via-slate-900/70 to-transparent px-6 pb-6 pt-20 text-white">
+                <p className="text-[11px] font-semibold uppercase tracking-[0.26em] text-white/70">
+                  {currentImage.eyebrow}
+                </p>
+                <h3 className="mt-3 text-2xl font-bold">{currentImage.title}</h3>
+                <p className="mt-2 max-w-sm text-sm leading-6 text-white/80">
+                  {currentImage.caption}
+                </p>
               </div>
             </div>
           </motion.div>
         </div>
       </section>
 
-      {/* ═══════════════ SERVICE CARDS (overlapping hero) ═══════════════ */}
-      <section className="max-w-7xl mx-auto px-6 -mt-8 relative z-20 pb-6">
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          {[
-            {
-              icon: <ShieldPlus size={24} />,
-              title: "Smart Diagnostics",
-              desc: "Upload lab reports and get AI insights and possible health conditions for informed actions.",
-            },
-            {
-              icon: <Activity size={24} />,
-              title: "Track Your Progress",
-              desc: "Monitor your health metrics over time and enhance performance to achieve your goals.",
-            },
-            {
-              icon: <Clock size={24} />,
-              title: "Real-Time Monitoring",
-              desc: "Keep track of vital metrics, delivering real-time insights for proactive and personalized care.",
-            },
-          ].map((item) => (
-            <div
-              key={item.title}
-              className="bg-teal-600 text-white rounded-2xl p-7 shadow-xl relative overflow-hidden group hover:bg-teal-700 transition"
-            >
-              <div className="absolute right-4 bottom-4 opacity-10 group-hover:opacity-20 transition">
-                <div className="w-20 h-20">{item.icon}</div>
-              </div>
-              <div className="bg-white/20 w-10 h-10 rounded-lg flex items-center justify-center mb-4">
-                {item.icon}
-              </div>
-              <h3 className="text-lg font-bold mb-2">{item.title}</h3>
-              <p className="text-teal-100 text-sm mb-4">{item.desc}</p>
-              <button className="flex items-center gap-1 text-sm font-bold tracking-wide text-white hover:gap-3 transition-all">
-                LEARN MORE <ArrowRight size={16} />
-              </button>
+      <section id="services" className="px-6 pb-8">
+        <div className="mx-auto max-w-7xl rounded-[2rem] border border-emerald-100 bg-white p-5 shadow-[0_18px_50px_rgba(15,118,110,0.08)]">
+          <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+            <div>
+              <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600">
+                Services
+              </p>
+              <h2 className="mt-2 text-2xl font-bold text-slate-900">
+                Jump straight into the five health modules
+              </h2>
             </div>
-          ))}
-        </div>
-      </section>
 
-      {/* ═══════════════ CHECKUP CARDS — ALL 5 ═══════════════ */}
-      <section className="py-20 px-6 bg-slate-50">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-12">
-            <span className="text-teal-600 font-semibold text-sm uppercase tracking-widest">
-              Our Services
-            </span>
-            <h2 className="text-4xl font-extrabold text-slate-900 mt-2 mb-3">
-              AI Health Checkups
-            </h2>
-            <p className="text-slate-400 max-w-xl mx-auto">
-              Choose from our suite of AI-powered diagnostic tools. Upload your
-              reports and get instant, accurate health insights.
-            </p>
-          </div>
-
-          {/* Row 1 — 3 cards */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-6">
-            {CHECKUP_CARDS.slice(0, 3).map((card) => (
-              <CheckupCard key={card.to} card={card} />
-            ))}
-          </div>
-
-          {/* Row 2 — 2 cards centered */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 md:max-w-2xl md:mx-auto">
-            {CHECKUP_CARDS.slice(3).map((card) => (
-              <CheckupCard key={card.to} card={card} />
-            ))}
+            <div className="flex flex-wrap gap-3">
+              {SERVICE_LINKS.map((item) => (
+                <Link
+                  key={item.label}
+                  to={item.to}
+                  className="rounded-full border border-slate-200 bg-slate-50 px-4 py-2 text-sm font-semibold text-slate-700 transition hover:border-emerald-200 hover:bg-emerald-50 hover:text-emerald-700"
+                >
+                  {item.label}
+                </Link>
+              ))}
+            </div>
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ CONNECT SECTION ═══════════════ */}
-      <section className="py-20 px-6 bg-white">
-        <div className="max-w-7xl mx-auto">
-          <div className="text-center mb-14">
-            <h2 className="text-4xl font-extrabold text-slate-900 mb-3">
-              Connect To The Doctor Nearby
-            </h2>
-            <p className="text-slate-400 max-w-lg mx-auto">
-              Providing reliable care and support for you and your family with
-              compassion and cutting-edge AI technology.
-            </p>
-          </div>
+      <section className="px-6 pb-6">
+        <div className="mx-auto grid max-w-7xl gap-5 md:grid-cols-3">
+          {PLATFORM_HIGHLIGHTS.map((item, index) => {
+            const Icon = item.icon;
 
-          <div className="grid md:grid-cols-3 gap-10">
-            {FEATURES.map((f, i) => (
+            return (
               <motion.div
-                key={f.title}
-                initial={{ opacity: 0, y: 30 }}
+                key={item.title}
+                initial={{ opacity: 0, y: 20 }}
                 whileInView={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: i * 0.1 }}
                 viewport={{ once: true }}
-                className="group"
+                transition={{ duration: 0.4, delay: index * 0.06 }}
+                className="rounded-[1.7rem] border border-emerald-100 bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(240,253,250,0.95)_100%)] p-6 shadow-sm"
               >
-                <div className="bg-teal-50 w-14 h-14 rounded-2xl flex items-center justify-center mb-4 group-hover:bg-teal-600 transition">
-                  <div className="group-hover:[&_svg]:text-white transition">
-                    {f.icon}
-                  </div>
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                  <Icon size={22} />
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-2">
-                  {f.title}
-                </h3>
-                <p className="text-slate-500 text-sm leading-relaxed">{f.desc}</p>
+                <h3 className="mt-5 text-xl font-bold text-slate-900">{item.title}</h3>
+                <p className="mt-3 text-sm leading-7 text-slate-600">
+                  {item.description}
+                </p>
               </motion.div>
-            ))}
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="px-6 py-12">
+        <div className="mx-auto max-w-7xl">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600">
+              Diagnostic Modules
+            </p>
+            <h2 className="mt-3 text-4xl font-black tracking-tight text-slate-950">
+              One platform, five AI-supported screening paths
+            </h2>
+            <p className="mt-4 text-lg leading-8 text-slate-600">
+              Each module is tailored for a different report or imaging workflow so the user journey feels focused instead of generic.
+            </p>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-2 xl:grid-cols-3">
+            {HEALTH_MODULES.map((module, index) => {
+              const Icon = module.icon;
+
+              return (
+                <motion.div
+                  key={module.title}
+                  initial={{ opacity: 0, y: 28 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.45, delay: index * 0.05 }}
+                >
+                  <Link
+                    to={module.to}
+                    className="group block h-full overflow-hidden rounded-[2rem] border border-slate-200 bg-white p-7 shadow-sm transition hover:-translate-y-1 hover:shadow-xl"
+                  >
+                    <div className={`h-2 rounded-full bg-gradient-to-r opacity-85 ${module.accent}`} />
+                    <div className="mt-6 flex items-start justify-between gap-4">
+                      <div className={`flex h-16 w-16 items-center justify-center rounded-2xl ${module.iconBg}`}>
+                        <Icon size={32} className={module.iconClass} />
+                      </div>
+                      <ArrowRight className="mt-2 text-slate-300 transition group-hover:translate-x-1 group-hover:text-emerald-500" />
+                    </div>
+                    <h3 className="mt-8 text-2xl font-bold text-slate-900">
+                      {module.title}
+                    </h3>
+                    <p className="mt-4 text-sm leading-7 text-slate-600">
+                      {module.description}
+                    </p>
+                  </Link>
+                </motion.div>
+              );
+            })}
           </div>
         </div>
       </section>
 
-      {/* ═══════════════ CTA BANNER ═══════════════ */}
-      <section className="bg-gradient-to-r from-teal-600 to-emerald-600 py-16 px-6 text-white text-center">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.6 }}
-          viewport={{ once: true }}
-        >
-          <h2 className="text-4xl font-extrabold mb-4">
-            Ready to Take Control of Your Health?
-          </h2>
-          <p className="text-teal-100 mb-8 max-w-xl mx-auto">
-            Start with any of our AI-powered checkups today. No specialist
-            appointment needed — just upload your report.
-          </p>
-          <Link
-            to="/kidney-test"
-            className="bg-white text-teal-600 px-8 py-3 rounded-xl font-bold hover:bg-teal-50 transition shadow-xl"
-          >
-            Start Your First Checkup →
-          </Link>
-        </motion.div>
+      <section id="how-it-works" className="bg-white px-6 py-20">
+        <div className="mx-auto max-w-7xl">
+          <div className="max-w-2xl">
+            <p className="text-sm font-semibold uppercase tracking-[0.24em] text-emerald-600">
+              How It Works
+            </p>
+            <h2 className="mt-3 text-4xl font-black tracking-tight text-slate-950">
+              Guided workflows designed to feel simple
+            </h2>
+            <p className="mt-4 text-base leading-8 text-slate-600">
+              MediSense AI turns a complicated diagnostic journey into a clear set of steps, from upload to interpretation.
+            </p>
+          </div>
+
+          <div className="mt-12 grid gap-6 md:grid-cols-3">
+            {HOW_IT_WORKS.map((item, index) => {
+              const Icon = item.icon;
+
+              return (
+                <motion.div
+                  key={item.title}
+                  initial={{ opacity: 0, y: 20 }}
+                  whileInView={{ opacity: 1, y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.45, delay: index * 0.08 }}
+                  className="rounded-[1.8rem] border border-slate-200 bg-[linear-gradient(180deg,rgba(255,255,255,1)_0%,rgba(248,250,252,1)_100%)] p-7 shadow-sm"
+                >
+                  <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-600">
+                    <Icon size={26} />
+                  </div>
+                  <h3 className="mt-6 text-2xl font-bold text-slate-900">{item.title}</h3>
+                  <p className="mt-4 text-sm leading-7 text-slate-600">
+                    {item.description}
+                  </p>
+                </motion.div>
+              );
+            })}
+          </div>
+        </div>
       </section>
     </div>
   );
 };
-
-/* ── Reusable Checkup Card ── */
-const CheckupCard = ({ card }) => (
-  <Link to={card.to} className="block group">
-    <div
-      className={`bg-white rounded-3xl p-8 shadow-md border-t-4 ${card.border} hover:-translate-y-3 hover:shadow-xl transition-all duration-300 h-full`}
-    >
-      <div className={`${card.iconBg} w-16 h-16 rounded-2xl flex items-center justify-center mb-5`}>
-        {card.icon}
-      </div>
-      <h3 className="text-xl font-bold text-slate-900 mb-3">{card.title}</h3>
-      <p className="text-slate-500 text-sm mb-6 leading-relaxed">{card.desc}</p>
-      <span className={`${card.accent} font-bold text-sm flex items-center gap-2 group-hover:gap-4 transition-all`}>
-        Start Checkup <ArrowRight size={16} />
-      </span>
-    </div>
-  </Link>
-);
 
 export default Home;
