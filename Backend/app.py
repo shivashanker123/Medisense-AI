@@ -14,6 +14,7 @@ from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image, UnidentifiedImageError
+import numpy as np
 
 from heart_backend import router as heart_router
 
@@ -25,6 +26,24 @@ load_dotenv(BASE_DIR / ".env", override=True)
 KIDNEY_MODEL_PATH = BASE_DIR / "best.pkl"
 CBC_MODEL_PATH = BASE_DIR / "cbc_pattern_model.pkl"
 CBC_ENCODER_PATH = BASE_DIR / "cbc_label_encoder.pkl"
+BRAIN_LABELS = ['Glioma Tumor', 'Meningioma Tumor', 'No Tumor', 'Pituitary Tumor']
+
+BRAIN_PROMPT = """
+You are an expert radiologist. Analyze the provided Brain MRI scan.
+Determine if there is a tumor and classify it strictly into one of the following exact categories:
+- Glioma Tumor
+- Meningioma Tumor
+- Pituitary Tumor
+- No Tumor
+
+Also, provide a confidence score between 0.0 and 1.0.
+
+Return ONLY a raw JSON object with the following keys. Do not include markdown formatting or explanations.
+{
+  "prediction": "",
+  "confidence": 0.0
+}
+""".strip()
 
 KIDNEY_EXPECTED_COLUMNS = [
     "age",
@@ -172,6 +191,9 @@ def _load_joblib_model(path: Path, label: str) -> Any | None:
         return None
 
 
+
+
+
 def _clean_json_response(text: str) -> dict[str, Any]:
     cleaned = text.strip()
     if cleaned.startswith("```json"):
@@ -223,8 +245,6 @@ else:
 kidney_model = _load_joblib_model(KIDNEY_MODEL_PATH, "Kidney model")
 cbc_model = _load_joblib_model(CBC_MODEL_PATH, "CBC model")
 cbc_label_encoder = _load_joblib_model(CBC_ENCODER_PATH, "CBC label encoder")
-
-
 @app.get("/")
 def health_check() -> dict[str, Any]:
     return {
@@ -298,6 +318,40 @@ def predict_cbc(data: CBCInput) -> dict[str, str]:
 @app.post("/upload-cbc-report")
 async def upload_cbc_report(file: UploadFile = File(...)) -> dict[str, Any]:
     return await _extract_report_data(file, CBC_OCR_PROMPT)
+
+
+@app.post("/predict-brain")
+async def predict_brain(file: UploadFile = File(...)) -> dict[str, Any]:
+    _ensure_image_upload(file)
+
+    if not gemini_client:
+        raise HTTPException(status_code=500, detail="GEMINI_API_KEY is not configured.")
+
+    try:
+        image_bytes = await file.read()
+        if not image_bytes:
+            raise HTTPException(status_code=400, detail="Uploaded file is empty.")
+
+        pil_image = Image.open(BytesIO(image_bytes))
+        response = await gemini_client.aio.models.generate_content(
+            model='gemini-2.5-flash',
+            contents=[BRAIN_PROMPT, pil_image]
+        )
+        
+        result = _clean_json_response(response.text)
+        
+        return {
+            "prediction": result.get("prediction", "Unknown"),
+            "confidence": float(result.get("confidence", 0.0))
+        }
+    except HTTPException:
+        raise
+    except (UnidentifiedImageError, OSError) as exc:
+        raise HTTPException(status_code=400, detail=f"Invalid image file: {exc}") from exc
+    except json.JSONDecodeError as exc:
+        raise HTTPException(status_code=502, detail=f"Invalid JSON response from LLM: {exc}") from exc
+    except Exception as exc:  # noqa: BLE001
+        raise HTTPException(status_code=400, detail=f"Prediction error: {exc}") from exc
 
 
 if __name__ == "__main__":
