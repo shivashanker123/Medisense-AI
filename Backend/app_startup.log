@@ -1,0 +1,13 @@
+C:\Users\Shiva shanker\anaconda3\Lib\site-packages\sklearn\base.py:376: InconsistentVersionWarning: Trying to unpickle estimator LabelEncoder from version 1.8.0 when using version 1.4.2. This might lead to breaking code or invalid results. Use at your own risk. For more info please refer to:
+https://scikit-learn.org/stable/model_persistence.html#security-maintainability-limitations
+  warnings.warn(
+INFO:     Started server process [24508]
+INFO:     Waiting for application startup.
+INFO:     Application startup complete.
+ERROR:    [Errno 10048] error while attempting to bind on address ('0.0.0.0', 5000): only one usage of each socket address (protocol/network address/port) is normally permitted
+INFO:     Waiting for application shutdown.
+INFO:     Application shutdown complete.
+Kidney model loaded from C:\Users\Shiva shanker\My Projects\medisense-ai\Medisense-AI\Backend\best.pkl
+CBC model loaded from C:\Users\Shiva shanker\My Projects\medisense-ai\Medisense-AI\Backend\cbc_pattern_model.pkl
+CBC label encoder loaded from C:\Users\Shiva shanker\My Projects\medisense-ai\Medisense-AI\Backend\cbc_label_encoder.pkl
+Starting FastAPI server on port 5000...

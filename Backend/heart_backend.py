@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from io import BytesIO
@@ -10,6 +11,17 @@ from dotenv import load_dotenv
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 from google import genai
+import aiohttp
+
+# --- Robust fix for aiohttp 3.11+ breaking changes ---
+if not hasattr(aiohttp, "ClientConnectorDNSError"):
+    try:
+        from aiohttp import client_exceptions
+        aiohttp.ClientConnectorDNSError = getattr(client_exceptions, "ClientConnectorDNSError", 
+                                                 getattr(client_exceptions, "ClientConnectorError", Exception))
+    except ImportError:
+        pass
+# -----------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
 load_dotenv(BASE_DIR / ".env", override=True)
@@ -87,11 +99,14 @@ async def predict_heart_from_image(file: UploadFile = File(...)):
 
     try:
         pil_image = Image.open(BytesIO(file_bytes))
-        response = await gemini_client.aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[HEART_PROMPT, pil_image]
-        )
-        
+
+        async def _call_gemini():
+            return await gemini_client.aio.models.generate_content(
+                model='gemini-flash-lite-latest',
+                contents=[HEART_PROMPT, pil_image]
+            )
+
+        response = await asyncio.wait_for(_call_gemini(), timeout=45.0)
         result = _clean_json_response(response.text)
         
         predicted_class = result.get("predicted_class", "Unknown (Q)")
@@ -109,6 +124,8 @@ async def predict_heart_from_image(file: UploadFile = File(...)):
             "probabilities": probabilities,
             "filename": file.filename,
         }
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Gemini API timed out. Please try again.")
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError) as exc:

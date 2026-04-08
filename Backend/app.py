@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import json
 import os
 from io import BytesIO
@@ -15,6 +16,17 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image, UnidentifiedImageError
 import numpy as np
+import aiohttp
+
+# --- Robust fix for aiohttp 3.11+ breaking changes ---
+if not hasattr(aiohttp, "ClientConnectorDNSError"):
+    try:
+        from aiohttp import client_exceptions
+        aiohttp.ClientConnectorDNSError = getattr(client_exceptions, "ClientConnectorDNSError", 
+                                                 getattr(client_exceptions, "ClientConnectorError", Exception))
+    except ImportError:
+        pass
+# -----------------------------------------------------
 
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
@@ -219,11 +231,17 @@ async def _extract_report_data(file: UploadFile, prompt_text: str) -> dict[str, 
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
         pil_image = Image.open(BytesIO(image_bytes))
-        response = await gemini_client.aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[prompt_text, pil_image]
-        )
+
+        async def _call_gemini():
+            return await gemini_client.aio.models.generate_content(
+                model='gemini-flash-lite-latest',
+                contents=[prompt_text, pil_image]
+            )
+
+        response = await asyncio.wait_for(_call_gemini(), timeout=45.0)
         return _clean_json_response(response.text)
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Gemini API timed out. Please try again.")
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError) as exc:
@@ -332,17 +350,22 @@ async def predict_brain(file: UploadFile = File(...)) -> dict[str, Any]:
             raise HTTPException(status_code=400, detail="Uploaded file is empty.")
 
         pil_image = Image.open(BytesIO(image_bytes))
-        response = await gemini_client.aio.models.generate_content(
-            model='gemini-2.5-flash',
-            contents=[BRAIN_PROMPT, pil_image]
-        )
-        
+
+        async def _call_gemini():
+            return await gemini_client.aio.models.generate_content(
+                model='gemini-flash-lite-latest',
+                contents=[BRAIN_PROMPT, pil_image]
+            )
+
+        response = await asyncio.wait_for(_call_gemini(), timeout=45.0)
         result = _clean_json_response(response.text)
-        
+
         return {
             "prediction": result.get("prediction", "Unknown"),
             "confidence": float(result.get("confidence", 0.0))
         }
+    except asyncio.TimeoutError:
+        raise HTTPException(status_code=504, detail="Gemini API timed out. Please try again.")
     except HTTPException:
         raise
     except (UnidentifiedImageError, OSError) as exc:
