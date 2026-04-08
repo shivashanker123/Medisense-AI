@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 import os
 from io import BytesIO
+from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from PIL import Image, UnidentifiedImageError
 from google import genai
+
+BASE_DIR = Path(__file__).resolve().parent
+load_dotenv(BASE_DIR / ".env", override=True)
 
 router = APIRouter(prefix="/heart", tags=["Heart ECG"])
 

@@ -6,22 +6,21 @@ from io import BytesIO
 from pathlib import Path
 from typing import Any
 
+from dotenv import load_dotenv
 from google import genai
 import joblib
 import pandas as pd
-from dotenv import load_dotenv
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from PIL import Image, UnidentifiedImageError
 import numpy as np
 
-from heart_backend import router as heart_router
-
-
 BASE_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = BASE_DIR.parent
 load_dotenv(BASE_DIR / ".env", override=True)
+
+from heart_backend import router as heart_router
 
 KIDNEY_MODEL_PATH = BASE_DIR / "best.pkl"
 CBC_MODEL_PATH = BASE_DIR / "cbc_pattern_model.pkl"
@@ -357,5 +356,6 @@ async def predict_brain(file: UploadFile = File(...)) -> dict[str, Any]:
 if __name__ == "__main__":
     import uvicorn
 
-    print("Starting FastAPI server on port 5000...")
-    uvicorn.run(app, host="0.0.0.0", port=5000)
+    port = int(os.getenv("PORT", "5000"))
+    print(f"Starting FastAPI server on port {port}...")
+    uvicorn.run(app, host="0.0.0.0", port=port)
