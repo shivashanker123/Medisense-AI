@@ -1,34 +1,63 @@
-import React, { useState } from "react";
+import { useEffect, useState } from "react";
 import axios from "axios";
-import { Upload, User, FileText, Activity, CheckCircle, AlertCircle } from "lucide-react";
+import {
+  Activity,
+  AlertCircle,
+  CheckCircle,
+  FileText,
+  Upload,
+  User,
+} from "lucide-react";
+
+import SavedProfileBanner from "../components/SavedProfileBanner";
+import { useAuth } from "../contexts/AuthContext";
 
 const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://localhost:5000";
 
 const HeartCheckup = () => {
+  const { profile } = useAuth();
+  const hasSavedProfile = Boolean(
+    profile?.full_name && profile?.age && profile?.gender,
+  );
+
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [result, setResult] = useState(null);
-
+  const [ecgImage, setEcgImage] = useState(null);
   const [patient, setPatient] = useState({
     name: "",
     age: "",
     gender: "Male",
   });
-  const [ecgImage, setEcgImage] = useState(null);
 
-  const handlePatientChange = (e) => {
-    setPatient({ ...patient, [e.target.name]: e.target.value });
+  useEffect(() => {
+    if (!hasSavedProfile) {
+      return;
+    }
+
+    setPatient({
+      name: profile.full_name,
+      age: String(profile.age),
+      gender: profile.gender,
+    });
+    setStep((current) => (current === 1 ? 2 : current));
+  }, [hasSavedProfile, profile]);
+
+  const handlePatientChange = (event) => {
+    const { name, value } = event.target;
+    setPatient((current) => ({ ...current, [name]: value }));
   };
 
-  const handleImageChange = (e) => {
-    const file = e.target.files?.[0] || null;
+  const handleImageChange = (event) => {
+    const file = event.target.files?.[0] || null;
     setEcgImage(file);
     setError("");
   };
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
     if (!ecgImage) {
       setError("Please upload an ECG image before running analysis.");
       return;
@@ -52,9 +81,9 @@ const HeartCheckup = () => {
 
       setResult(response.data);
       setStep(3);
-    } catch (err) {
+    } catch (submitError) {
       const detail =
-        err?.response?.data?.detail ||
+        submitError?.response?.data?.detail ||
         "Unable to analyze ECG image. Please check backend and try again.";
       setError(detail);
     } finally {
@@ -62,114 +91,126 @@ const HeartCheckup = () => {
     }
   };
 
+  const resetCheckup = () => {
+    setLoading(false);
+    setError("");
+    setResult(null);
+    setEcgImage(null);
+    setPatient({
+      name: hasSavedProfile ? profile.full_name : "",
+      age: hasSavedProfile ? String(profile.age) : "",
+      gender: hasSavedProfile ? profile.gender : "Male",
+    });
+    setStep(hasSavedProfile ? 2 : 1);
+  };
+
   const sortedProbs = result?.probabilities
     ? Object.entries(result.probabilities).sort((a, b) => b[1] - a[1])
     : [];
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-6 py-16">
-      <div className="w-full max-w-6xl bg-white rounded-3xl shadow-2xl overflow-hidden grid grid-cols-1 md:grid-cols-3">
-        {/* LEFT SIDEBAR */}
-        <div className="bg-gradient-to-b from-rose-500 to-pink-600 text-white p-10 flex flex-col gap-10">
-          <div>
-            <h1 className="text-3xl font-bold mb-2">Heart Checkup</h1>
-            <p className="text-rose-100">Step {Math.min(step, 3)} of 3</p>
-          </div>
+    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 py-16">
+      <div className="grid w-full max-w-6xl overflow-hidden rounded-[2rem] bg-white shadow-2xl md:grid-cols-[300px_1fr]">
+        <div className="bg-gradient-to-b from-rose-500 to-pink-600 p-8 text-white">
+          <h1 className="text-4xl font-bold">Heart Checkup</h1>
+          <p className="mt-3 text-sm text-rose-100">
+            Step {hasSavedProfile ? Math.max(step, 2) : Math.min(step, 3)} of 3
+          </p>
 
-          <div className="space-y-6">
-            <div className={`flex items-center gap-4 ${step === 1 ? "font-semibold" : "text-white/70"}`}>
-              <div className={`p-3 rounded-lg ${step === 1 ? "bg-white/20" : "bg-white/10"}`}>
-                <User />
-              </div>
-              Patient Details
-            </div>
-
-            <div className={`flex items-center gap-4 ${step === 2 ? "font-semibold" : "text-white/70"}`}>
-              <div className={`p-3 rounded-lg ${step === 2 ? "bg-white/20" : "bg-white/10"}`}>
-                <FileText />
-              </div>
-              ECG Upload
-            </div>
-
-            <div className={`flex items-center gap-4 ${step === 3 ? "font-semibold" : "text-white/70"}`}>
-              <div className={`p-3 rounded-lg ${step === 3 ? "bg-white/20" : "bg-white/10"}`}>
-                <Activity />
-              </div>
-              AI Analysis
-            </div>
+          <div className="mt-12 space-y-5">
+            <SidebarStep
+              active={!hasSavedProfile && step === 1}
+              complete={hasSavedProfile}
+              icon={<User size={18} />}
+              label={hasSavedProfile ? "Profile Saved" : "Patient Details"}
+            />
+            <SidebarStep
+              active={step === 2}
+              complete={step > 2}
+              icon={<FileText size={18} />}
+              label="ECG Upload"
+            />
+            <SidebarStep
+              active={step === 3}
+              complete={false}
+              icon={<Activity size={18} />}
+              label="AI Analysis"
+            />
           </div>
         </div>
 
-        {/* RIGHT FORM */}
-        <div className="md:col-span-2 p-12">
-          {step === 1 && (
+        <div className="p-8 md:p-10">
+          {!hasSavedProfile && step === 1 ? (
             <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-8">
-                Patient Information
-              </h2>
+              <h2 className="text-3xl font-bold text-slate-900">Patient Information</h2>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-600 mb-2">Full Name</label>
-                <input
-                  type="text"
-                  name="name"
-                  value={patient.name}
+              <Field
+                label="Full Name"
+                name="name"
+                value={patient.name}
+                onChange={handlePatientChange}
+                placeholder="John Doe"
+              />
+
+              <div className="grid gap-5 md:grid-cols-2">
+                <Field
+                  label="Age"
+                  name="age"
+                  type="number"
+                  value={patient.age}
                   onChange={handlePatientChange}
-                  placeholder="John Doe"
-                  className="w-full rounded-lg border px-4 py-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                  placeholder="45"
                 />
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Age</label>
-                  <input
-                    type="number"
-                    name="age"
-                    value={patient.age}
-                    onChange={handlePatientChange}
-                    placeholder="45"
-                    className="w-full rounded-lg border px-4 py-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
-                  />
-                </div>
 
                 <div>
-                  <label className="block text-sm font-medium text-gray-600 mb-2">Gender</label>
+                  <label className="mb-2 block text-sm font-medium text-slate-600">
+                    Gender
+                  </label>
                   <select
                     name="gender"
                     value={patient.gender}
                     onChange={handlePatientChange}
-                    className="w-full rounded-lg border px-4 py-3 bg-slate-50 focus:outline-none focus:ring-2 focus:ring-rose-400"
+                    className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-rose-400"
                   >
-                    <option>Male</option>
-                    <option>Female</option>
-                    <option>Other</option>
+                    <option value="Male">Male</option>
+                    <option value="Female">Female</option>
+                    <option value="Other">Other</option>
                   </select>
                 </div>
               </div>
 
               <button
+                type="button"
                 onClick={() => setStep(2)}
-                className="w-full mt-6 bg-gradient-to-r from-rose-500 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-700 transition"
+                className="w-full rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 py-3 font-semibold text-white transition hover:from-rose-600 hover:to-pink-700"
               >
                 Next Step
               </button>
             </div>
-          )}
+          ) : null}
 
-          {step === 2 && (
+          {step === 2 ? (
             <form onSubmit={handleSubmit} className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-800 mb-2">Upload ECG Image</h2>
-              <p className="text-sm text-gray-500">
-                Upload a clear ECG graph image (PNG/JPG). We convert it into a 1D signal and run the trained ECG model.
-              </p>
+              <SavedProfileBanner
+                profile={hasSavedProfile ? profile : null}
+                tone="rose"
+              />
 
-              <label className="w-full border-2 border-dashed border-rose-300 rounded-xl p-8 flex flex-col items-center justify-center text-center bg-rose-50/40 cursor-pointer hover:bg-rose-50 transition">
-                <Upload className="text-rose-600 mb-3" />
-                <span className="font-semibold text-gray-700">
-                  {ecgImage ? ecgImage.name : "Click to choose ECG image"}
+              <div>
+                <h2 className="text-3xl font-bold text-slate-900">Upload ECG Image</h2>
+                <p className="mt-3 max-w-2xl text-sm leading-7 text-slate-500">
+                  Upload a clear ECG graph image. The backend converts it into a 1D signal and runs the trained ECG model.
+                </p>
+              </div>
+
+              <label className="flex w-full cursor-pointer flex-col items-center justify-center rounded-[1.8rem] border-2 border-dashed border-rose-200 bg-rose-50/50 p-10 text-center transition hover:bg-rose-50">
+                <div className="rounded-full bg-white p-4 shadow-sm">
+                  <Upload className="text-rose-600" />
+                </div>
+                <span className="mt-4 text-lg font-semibold text-slate-800">
+                  {ecgImage ? ecgImage.name : "Click to choose an ECG image"}
                 </span>
-                <span className="text-xs text-gray-500 mt-1">PNG, JPG, JPEG</span>
+                <span className="mt-1 text-sm text-slate-500">PNG, JPG, JPEG</span>
                 <input
                   type="file"
                   accept="image/png,image/jpeg,image/jpg"
@@ -178,93 +219,137 @@ const HeartCheckup = () => {
                 />
               </label>
 
-              {error && (
-                <div className="rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm p-3">
+              {error ? (
+                <div className="rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
                   {error}
                 </div>
-              )}
+              ) : null}
 
               <div className="flex gap-4">
-                <button
-                  type="button"
-                  onClick={() => setStep(1)}
-                  className="w-1/3 border border-slate-300 py-3 rounded-lg font-semibold hover:bg-slate-50 transition"
-                >
-                  Back
-                </button>
+                {!hasSavedProfile ? (
+                  <button
+                    type="button"
+                    onClick={() => setStep(1)}
+                    className="w-1/3 rounded-xl border border-slate-300 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
+                  >
+                    Back
+                  </button>
+                ) : null}
 
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-2/3 bg-gradient-to-r from-rose-500 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-700 transition disabled:opacity-70"
+                  className={`${hasSavedProfile ? "w-full" : "w-2/3"} rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 py-3 font-semibold text-white transition hover:from-rose-600 hover:to-pink-700 disabled:cursor-not-allowed disabled:opacity-70`}
                 >
                   {loading ? "Analyzing..." : "Run AI Analysis"}
                 </button>
               </div>
             </form>
-          )}
+          ) : null}
 
-          {step === 3 && result && (
+          {step === 3 && result ? (
             <div className="space-y-6">
+              <SavedProfileBanner
+                profile={hasSavedProfile ? profile : null}
+                tone="rose"
+              />
+
               <div>
-                <h2 className="text-2xl font-bold text-gray-800 mb-2">AI Analysis Result</h2>
-                <p className="text-gray-500 text-sm">
-                  Patient: {patient.name || "N/A"} | Age: {patient.age || "N/A"} | Gender:{" "}
-                  {patient.gender}
+                <h2 className="text-3xl font-bold text-slate-900">AI Analysis Result</h2>
+                <p className="mt-2 text-sm text-slate-500">
+                  Patient: {patient.name || "N/A"} | Age: {patient.age || "N/A"} | Gender: {patient.gender}
                 </p>
               </div>
 
-              <div className="rounded-xl border border-rose-200 bg-rose-50 p-5">
-                <div className="text-sm text-rose-700 mb-1">Predicted Rhythm Class</div>
-                <div className="text-xl font-bold text-rose-900">{result.predicted_class}</div>
-                <div className="text-sm text-rose-700 mt-1">
+              <div className="rounded-[1.6rem] border border-rose-200 bg-rose-50 p-5">
+                <div className="text-sm text-rose-700">Predicted Rhythm Class</div>
+                <div className="mt-2 text-2xl font-bold text-rose-900">
+                  {result.predicted_class}
+                </div>
+                <div className="mt-2 text-sm text-rose-700">
                   Confidence: {(result.confidence * 100).toFixed(2)}%
                 </div>
               </div>
 
-              <div className="space-y-2">
-                {sortedProbs.map(([label, prob]) => (
+              <div className="space-y-3">
+                {sortedProbs.map(([label, probability]) => (
                   <div
                     key={label}
-                    className={`flex justify-between items-center p-3 rounded-lg border ${
+                    className={`flex items-center justify-between rounded-2xl border px-4 py-3 ${
                       label === result.predicted_class
-                        ? "bg-red-50 border-red-200 text-red-700"
-                        : "bg-green-50 border-green-200 text-green-700"
+                        ? "border-rose-200 bg-rose-50 text-rose-700"
+                        : "border-emerald-200 bg-emerald-50 text-emerald-700"
                     }`}
                   >
-                    <span className="font-semibold text-sm flex items-center gap-2">
-                      {label === result.predicted_class ? <AlertCircle size={16} /> : <CheckCircle size={16} />}
+                    <span className="flex items-center gap-2 text-sm font-semibold">
+                      {label === result.predicted_class ? (
+                        <AlertCircle size={16} />
+                      ) : (
+                        <CheckCircle size={16} />
+                      )}
                       {label}
                     </span>
-                    <span className="text-sm font-bold">{(prob * 100).toFixed(2)}%</span>
+                    <span className="text-sm font-bold">
+                      {(probability * 100).toFixed(2)}%
+                    </span>
                   </div>
                 ))}
               </div>
 
               <div className="flex gap-4">
                 <button
+                  type="button"
                   onClick={() => {
-                    setStep(2);
                     setResult(null);
                     setError("");
+                    setStep(2);
                   }}
-                  className="w-1/2 border border-slate-300 py-3 rounded-lg font-semibold hover:bg-slate-50 transition"
+                  className="w-1/2 rounded-xl border border-slate-300 py-3 font-semibold text-slate-700 transition hover:bg-slate-50"
                 >
                   Try Another ECG
                 </button>
                 <button
-                  onClick={() => window.location.reload()}
-                  className="w-1/2 bg-gradient-to-r from-rose-500 to-pink-600 text-white py-3 rounded-lg font-semibold hover:from-rose-600 hover:to-pink-700 transition"
+                  type="button"
+                  onClick={resetCheckup}
+                  className="w-1/2 rounded-xl bg-gradient-to-r from-rose-500 to-pink-600 py-3 font-semibold text-white transition hover:from-rose-600 hover:to-pink-700"
                 >
                   Start New Checkup
                 </button>
               </div>
             </div>
-          )}
+          ) : null}
         </div>
       </div>
     </div>
   );
 };
+
+const SidebarStep = ({ active, complete, icon, label }) => (
+  <div className={`flex items-center gap-3 ${active || complete ? "opacity-100" : "opacity-60"}`}>
+    <div className="rounded-xl bg-white/15 p-2.5">{icon}</div>
+    <span className={active || complete ? "font-semibold" : ""}>{label}</span>
+  </div>
+);
+
+const Field = ({
+  label,
+  name,
+  type = "text",
+  value,
+  onChange,
+  placeholder,
+}) => (
+  <div>
+    <label className="mb-2 block text-sm font-medium text-slate-600">{label}</label>
+    <input
+      type={type}
+      name={name}
+      value={value}
+      onChange={onChange}
+      placeholder={placeholder}
+      className="w-full rounded-xl border border-slate-200 bg-white px-4 py-3 outline-none transition focus:border-rose-400"
+    />
+  </div>
+);
 
 export default HeartCheckup;
